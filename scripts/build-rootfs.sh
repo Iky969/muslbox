@@ -21,7 +21,7 @@ mkdir -p "$ROOTFS"
 log "initialising mbpm database in $ROOTFS"
 "$MBPM" -r "$ROOTFS" init
 
-for pkg in base busybox modules init mbpm hello; do
+for pkg in base busybox modules init mbpm hello httpsget; do
 	archive=$(find "$PKGDIR" -maxdepth 1 -name "$pkg-*.mbp" -print -quit)
 	[ -n "$archive" ] || die "missing package: $pkg"
 	log "installing $(basename "$archive")"

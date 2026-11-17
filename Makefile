@@ -12,12 +12,12 @@ PACKAGES   := $(DISTRO)/packages
 IMAGE      := $(DISTRO)/initramfs.cpio.gz
 KERNEL     := $(DISTRO)/vmlinuz-virt
 
-.PHONY: all deps tools busybox packages rootfs image check test \
-        test-package clean env help
+.PHONY: all deps tools busybox mbedtls packages rootfs image check test \
+        test-package test-https clean env help
 
 help:
 	@printf 'MUSLBOX targets:\n'
-	@printf '  all deps tools busybox packages rootfs image check test test-package clean\n'
+	@printf '  all deps tools busybox mbedtls packages rootfs image check test\n'
 	@printf 'JOBS=%s (override with JOBS=4 make ...)\n' '$(JOBS)'
 
 env:
@@ -35,7 +35,10 @@ tools:
 busybox: deps
 	@bash scripts/build-busybox.sh
 
-packages: tools busybox
+mbedtls: deps
+	@bash scripts/build-mbedtls.sh
+
+packages: tools busybox mbedtls
 	@bash scripts/build-packages.sh
 
 rootfs: packages
@@ -52,6 +55,9 @@ test: image
 
 test-package: tools
 	@bash scripts/test-package.sh
+
+test-https: image
+	@python3 scripts/test-https.py
 
 clean:
 	rm -rf '$(BUILD)' '$(DISTRO)'

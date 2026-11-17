@@ -13,7 +13,7 @@ MBPM="$BUILD/mbpm"
 printf '==> mbpm init\n'
 "$MBPM" -r "$T" init
 
-for pkg in base busybox modules init mbpm hello; do
+for pkg in base busybox modules init mbpm hello httpsget; do
 	a=$(find "$DISTRO/packages" -maxdepth 1 -name "$pkg-*.mbp" -print -quit)
 	[ -n "$a" ] || { echo "FAIL: missing $pkg package" >&2; exit 1; }
 	"$MBPM" -r "$T" install "$a"
@@ -22,7 +22,7 @@ done
 printf '==> mbpm list\n'
 "$MBPM" -r "$T" list > "$T/list.out"
 cat "$T/list.out"
-for pkg in base busybox modules init mbpm hello; do
+for pkg in base busybox modules init mbpm hello httpsget; do
 	grep -qx "$pkg" "$T/list.out" || { echo "FAIL: $pkg not listed" >&2; cat "$T/list.out"; exit 1; }
 done
 

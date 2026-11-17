@@ -14,6 +14,8 @@ BB_URL=${BB_URL:-https://busybox.net/downloads/busybox-1.36.1.tar.bz2}
 BB_SHA=b8cc24c9574d809e7279c3be349795c5d5ceb6fdf19ca709f80cde50e47de314
 MODLOOP_URL=${MODLOOP_URL:-https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/netboot-3.20.10/modloop-virt}
 MODLOOP_SHA=a6ed1699b1c8c863fe57543263480ee3835c083b8202251d3919d1817a3c5358
+MBEDTLS_URL=${MBEDTLS_URL:-https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-3.6.8/mbedtls-3.6.8.tar.bz2}
+MBEDTLS_SHA=bc54b818e87f49c0b3281dd85d24adaede0e63b4e822e3fbd49c005a38b9595b
 
 log() { printf '==> %s\n' "$1"; }
 die() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -43,6 +45,7 @@ fetch_verify() { # url sha dest
 fetch_verify "$KERNEL_URL" "$KERNEL_SHA" "$CACHE/vmlinuz-virt"
 fetch_verify "$BB_URL" "$BB_SHA" "$CACHE/busybox-1.36.1.tar.bz2"
 fetch_verify "$MODLOOP_URL" "$MODLOOP_SHA" "$CACHE/modloop-virt"
+fetch_verify "$MBEDTLS_URL" "$MBEDTLS_SHA" "$CACHE/mbedtls-3.6.8.tar.bz2"
 
 cp "$CACHE/vmlinuz-virt" "$DISTRO/vmlinuz-virt"
 log "deps ready ($(du -h "$DISTRO/vmlinuz-virt" | cut -f1) kernel)"

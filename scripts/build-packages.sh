@@ -15,10 +15,11 @@ die() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 [ -x "$BUILD/busybox-1.36.1/busybox" ] || die "run make busybox first"
 [ -x "$BUILD/mbpm" ] || die "run make tools first"
 [ -x "$BUILD/init" ] || die "run make tools first"
+[ -x "$BUILD/httpsget" ] || die "run make mbedtls first"
 
 # base: /etc skeleton
-rm -rf "$SRC/base" "$SRC/busybox" "$SRC/init" "$SRC/mbpm" "$SRC/hello" "$SRC/modules"
-mkdir -p "$SRC/base" "$SRC/busybox" "$SRC/init" "$SRC/mbpm" "$SRC/hello" "$SRC/modules"
+rm -rf "$SRC/base" "$SRC/busybox" "$SRC/init" "$SRC/mbpm" "$SRC/hello" "$SRC/modules" "$SRC/httpsget"
+mkdir -p "$SRC/base" "$SRC/busybox" "$SRC/init" "$SRC/mbpm" "$SRC/hello" "$SRC/modules" "$SRC/httpsget"
 cp -a "$PKGROOT/base/x/." "$SRC/base/"
 cp -a "$BUILD/busybox-install/." "$SRC/busybox/"
 
@@ -44,6 +45,12 @@ mkdir -p "$SRC/mbpm/usr/bin"
 cp "$BUILD/mbpm" "$SRC/mbpm/usr/bin/mbpm"
 chmod 0755 "$SRC/mbpm/usr/bin/mbpm"
 
+# static HTTPS client + deliberately small CA bundle
+mkdir -p "$SRC/httpsget/usr/bin" "$SRC/httpsget/etc/ssl/certs"
+cp "$BUILD/httpsget" "$SRC/httpsget/usr/bin/httpsget"
+chmod 0755 "$SRC/httpsget/usr/bin/httpsget"
+cp "$PKGROOT/httpsget/x/etc/ssl/certs/ca-bundle.crt" "$SRC/httpsget/etc/ssl/certs/ca-bundle.crt"
+
 # demo package
 cp -a "$PKGROOT/hello/x/." "$SRC/hello/"
 
@@ -54,5 +61,6 @@ bash "$ROOT/scripts/make-package.sh" "$SRC/modules"  modules  0.1 "$OUT"
 bash "$ROOT/scripts/make-package.sh" "$SRC/init"     init     0.1 "$OUT" "busybox"
 bash "$ROOT/scripts/make-package.sh" "$SRC/mbpm"     mbpm     0.1 "$OUT" "busybox"
 bash "$ROOT/scripts/make-package.sh" "$SRC/hello"    hello    0.1 "$OUT" "busybox"
+bash "$ROOT/scripts/make-package.sh" "$SRC/httpsget" httpsget 0.2 "$OUT" "busybox"
 
 ls -lh "$OUT"/*.mbp

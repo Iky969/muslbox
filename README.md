@@ -17,7 +17,8 @@ copied from it.
 | Package manager | `mbpm` — binary `.mbp` tarball packages |
 | Image | < 50 MB (initramfs + kernel) |
 | Boot to shell | < 2 s under `qemu-system-x86_64 -nographic` |
-| Networking | virtio-net, DHCP via busybox `udhcpc`, `ip`, `ping`, `wget` |
+| Networking | virtio-net, `ip`/`ping`, DNS 10.0.2.3, DHCP via `udhcpc` |
+| HTTPS | static mbedTLS 3.6.8 `httpsget` + 6-root CA bundle (8,3 KB) |
 | Build | single `make`, `JOBS=$(nproc)` (EC2: 2 vCPU, 7.6 GiB RAM) |
 
 ## Blueprint direktori
@@ -28,23 +29,27 @@ muslbox/
 ├── README.md                 # blueprint + arsitektur + cara pakai
 ├── .gitignore                # cache/, build/, distro/ tidak masuk git
 ├── src/
-│   ├── init.c                # PID 1: mount, network, getty/shell, SIGCHLD reap, poweroff
-│   └── mbpm.c                # binary package manager (C, static musl)
+│   ├── init.c                # PID 1: mount, network, shell+TIOCSCTTY, SIGCHLD reap, poweroff
+│   ├── mbpm.c                # binary package manager (C, static musl)
+│   └── httpsget.c            # minimal HTTPS GET client (C, static musl + mbedTLS)
 ├── scripts/
 │   ├── fetch-deps.sh         # download kernel + busybox tarball, verify sha256
 │   ├── build-busybox.sh      # busybox 1.36.1, CONFIG_STATIC=y, CC=musl-gcc
+│   ├── build-mbedtls.sh      # mbedTLS 3.6.8 static libs + httpsget
 │   ├── build-tools.sh        # compile init.c + mbpm.c with musl-gcc
 │   ├── make-package.sh       # build a .mbp tarball package from a source dir
 │   ├── build-rootfs.sh       # assemble rootfs/ from installed packages
 │   ├── build-image.sh        # cpio.gz initramfs
 │   ├── check-size.sh         # enforce the <50 MB budget
-│   ├── test-boot.py          # headless QEMU test: uname -a, ps, ip, timing
+│   ├── test-boot.py          # headless QEMU test: uname -a, ps, ip, tty, timing
+│   ├── test-https.py         # HTTPS from inside QEMU to github + example.com
 │   └── test-package.sh       # mbpm install/remove/list/verify smoke test
 ├── packages/
 │   ├── base/                 # /etc skeleton, hostname, hosts, resolv.conf
 │   ├── busybox/              # manifest + x/ payload tree
 │   ├── mbpm/                 # manifest + x/usr/bin/mbpm
-│   └── hello/                # demo package: /usr/bin/hello
+│   ├── hello/                # demo package: /usr/bin/hello
+│   └── httpsget/             # static httpsget + minimal CA bundle
 ├── cache/                    # (ignored) pinned upstream tarballs + kernel
 ├── build/                    # (ignored) extracted sources, intermediate objects
 └── distro/                   # (ignored) rootfs/, initramfs.cpio.gz, muslbox.img
@@ -56,16 +61,20 @@ muslbox/
 make deps        -> cache/vmlinuz-virt, cache/busybox-1.36.1.tar.bz2  (+sha256)
 make tools       -> build/init, build/mbpm          (musl-gcc -static -O2)
 make busybox     -> build/busybox-install/...       (musl static)
+make mbedtls     -> build/httpsget                  (musl static, 956 KB)
 make packages    -> distro/packages/*.mbp           (make-package.sh)
 make rootfs      -> distro/rootfs/                  (mbpm install into target root)
 make image       -> distro/initramfs.cpio.gz        (cpio -o -H newc | gzip -9)
-make test        -> QEMU -nographic boot, assert uname/ps, measure boot time
+make test        -> QEMU -nographic boot, assert uname/ps/tty, measure boot time
+make test-https  -> HTTPS GET from inside guest to api.github.com + example.com
 make all         -> everything above, in order
 make clean       -> remove build/ and distro/ (keep cache/ for speed)
 ```
 
 `JOBS` defaults to `$(nproc)` (2 on this EC2). All upstream artifacts are
-pinned by URL + SHA256 so a rebuild is byte-for-byte reproducible.
+pinned by URL + SHA256 so a rebuild is byte-for-byte reproducible. QEMU
+user-mode DNS lives at `10.0.2.3` (gateway tetap `10.0.2.2`) — ini ditemukan
+setelah `10.0.2.2` tidak menjawab query DNS musl.
 
 ## Kenapa initramfs, bukan GPT+Limine?
 
@@ -94,9 +103,10 @@ varian GLIBC self-hosting.
 
 ```
 kernel   : 10863616 bytes (10.4 MiB)
-initramfs:  1389814 bytes ( 1.3 MiB)
-TOTAL    : 12253430 bytes (11.7 MiB)   <- jauh di bawah 50 MB
-[boot] guest boot-to-shell: 1.73s (budget 2.0s)
+initramfs:  1850597 bytes ( 1.8 MiB)
+TOTAL    : 12714213 bytes (12.1 MiB)   <- jauh di bawah 50 MB
+[boot] guest boot-to-shell: 1.68s (budget 2.0s)
+[tty]  /dev/console (job control aktif, tanpa warning "can't access tty")
 
 Linux muslbox 6.6.134-0-virt #1-Alpine SMP PREEMPT_DYNAMIC ... x86_64 GNU/Linux
 PID   USER     TIME  COMMAND
@@ -104,6 +114,8 @@ PID   USER     TIME  COMMAND
 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> ... inet 10.0.2.15/24
 base  busybox  hello  init  mbpm  modules
 hello from MUSLBOX: Linux 6.6.134-0-virt on muslbox
+HTTPS/1.1 200 OK  <- httpsget ke api.github.com/zen dan example.com,
+                     sertifikat terverifikasi dengan CA bundle 6 root (8,3 KB)
 ```
 
 `make test` menjalankan `qemu-system-x86_64 -nographic` secara headless dan

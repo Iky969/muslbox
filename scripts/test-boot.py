@@ -108,13 +108,14 @@ try:
         send("echo IP_BEGIN; ip addr show eth0; echo IP_END")
         send("echo LINK_BEGIN; ip link; echo LINK_END")
         send("echo MBPM_BEGIN; mbpm list; echo MBPM_END")
+        send("echo TTY_BEGIN; tty; echo TTY_END")
         send("echo HELLO_BEGIN; hello; echo HELLO_END")
 
         # Anchor to a whole line: the shell echoes our command text, which
         # contains the marker names too, so a plain substring match fires
         # before the real output has arrived.
         for marker in ("UNAME_END", "PS_END", "IP_END", "LINK_END",
-                       "MBPM_END", "HELLO_END"):
+                       "MBPM_END", "TTY_END", "HELLO_END"):
             if not wait_for(r"(?m)^" + re.escape(marker) + r"\r?$", timeout=10):
                 failures.append(f"missing output marker {marker}")
 
@@ -123,6 +124,7 @@ try:
         ip_out = section("IP_BEGIN", "IP_END")
         link_out = section("LINK_BEGIN", "LINK_END")
         mbpm_out = section("MBPM_BEGIN", "MBPM_END")
+        tty_out = section("TTY_BEGIN", "TTY_END")
         hello_out = section("HELLO_BEGIN", "HELLO_END")
 
         print("\n--- uname -a ---\n" + uname_out)
@@ -130,6 +132,7 @@ try:
         print("--- ip addr (eth0) ---\n" + ip_out)
         print("--- ip link ---\n" + link_out)
         print("--- mbpm list ---\n" + mbpm_out)
+        print("--- tty ---\n" + tty_out)
         print("--- hello ---\n" + hello_out)
 
         if not re.search(r"Linux\s+\S+", uname_out):
@@ -139,9 +142,13 @@ try:
             failures.append("PID 1 is not the custom init")
         if "10.0.2.15" not in ip_out:
             failures.append("virtio-net address missing")
-        for pkg in ("base", "busybox", "modules", "init", "mbpm", "hello"):
+        for pkg in ("base", "busybox", "modules", "init", "mbpm", "hello", "httpsget"):
             if pkg not in mbpm_out:
                 failures.append(f"mbpm list missing {pkg}")
+        if "/dev/console" not in tty_out:
+            failures.append(f"shell has no controlling terminal: {tty_out!r}")
+        if "can't access tty" in "".join(lines):
+            failures.append("bash/ash job-control warning still present")
         if "hello from MUSLBOX" not in hello_out:
             failures.append("demo package did not run")
 

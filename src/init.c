@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/reboot.h>
 #include <sys/stat.h>
@@ -102,6 +103,11 @@ static pid_t spawn_shell(void) {
 				close(fd);
 		}
 		setsid();
+		/* setsid() leaves the child a session leader with no controlling
+		 * terminal.  Claim /dev/console so job control works and ash stops
+		 * printing "can't access tty; job control turned off". */
+		if (ioctl(STDIN_FILENO, TIOCSCTTY, 1) < 0)
+			perror("[init] ioctl(TIOCSCTTY)");
 		execl("/bin/sh", "sh", NULL);
 		perror("[init] exec /bin/sh");
 		_exit(127);
