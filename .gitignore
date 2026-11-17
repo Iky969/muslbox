@@ -1,0 +1,6 @@
+cache/
+build/
+distro/
+*.pyc
+__pycache__/
+*.o
